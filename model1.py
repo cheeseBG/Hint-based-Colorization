@@ -401,6 +401,26 @@ def PSNR(mse):
     psnr = 20 * log10(max_pixel / sqrt(mse))
     return psnr
 
+
+'''
+ SSIM
+'''
+from IQA_pytorch import SSIM, utils
+from PIL import Image
+import torch
+
+
+def ssim(img_gt, img_output):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    img_gt = utils.prepare_image(Image.fromarray(img_gt).convert("RGB")).to(device)
+    img_output = utils.prepare_image(Image.fromarray(img_output).convert("RGB")).to(device)
+    model = SSIM(channels=3)
+    score = model(img_gt, img_output, as_loss=False)
+
+    return score
+
+
 '''
  Network Training
 '''
@@ -432,8 +452,8 @@ output_path = os.path.join(save_path, 'basic_model.tar')
 def train_1epoch(net, dataloader, object_epoch):
     total_loss = 0
     iteration = 0
-    psnr_mse = 0
     psnr_total = 0
+    ssim_total = 0
 
     net.train()
 
@@ -456,6 +476,7 @@ def train_1epoch(net, dataloader, object_epoch):
         gt_image = torch.cat((img_l, img_ab), dim=1)
         output_image = torch.cat((img_l, output), dim=1)
 
+        # PSNR
         gt_np = tensor2npy(gt_image)
         output_np = tensor2npy(output_image)
         psnr_mse = ((output_np - gt_np) ** 2).sum() / len(output_np)
@@ -463,6 +484,16 @@ def train_1epoch(net, dataloader, object_epoch):
 
         psnr = PSNR(psnr_mse)
         psnr_total += psnr
+
+        # SSIM
+        gt_np_ssim = tensor2im(gt_image)
+        output_np_ssim = tensor2im(output_image)
+
+        gt_bgr = cv2.cvtColor(gt_np_ssim, cv2.COLOR_LAB2BGR)
+        output_bgr = cv2.cvtColor(output_np_ssim, cv2.COLOR_LAB2BGR)
+
+        ssim_score = ssim(gt_bgr, output_bgr)
+        ssim_total += ssim_score
 
         total_loss += loss.detach()
         iteration += 1
@@ -488,14 +519,15 @@ def train_1epoch(net, dataloader, object_epoch):
 
     total_loss /= iteration
     psnr_total /= iteration
+    ssim_total /= iteration
 
-    return total_loss, psnr_total
+    return total_loss, psnr_total, ssim_total
 
 def validation_1epoch(net, dataloader, object_epoch):
     total_loss = 0
     iteration = 0
-    psnr_mse = 0
     psnr_total = 0
+    ssim_total = 0
 
     net.eval()
 
@@ -515,6 +547,8 @@ def validation_1epoch(net, dataloader, object_epoch):
         gt_image = torch.cat((img_l, img_ab), dim=1)
         output_image = torch.cat((img_l, output), dim=1)
 
+        # PSNR
+
         gt_np = tensor2npy(gt_image)
         output_np = tensor2npy(output_image)
         psnr_mse = ((output_np - gt_np) ** 2).sum() / len(output_np)
@@ -522,6 +556,16 @@ def validation_1epoch(net, dataloader, object_epoch):
 
         psnr = PSNR(psnr_mse)
         psnr_total += psnr
+
+        # SSIM
+        gt_np_ssim = tensor2im(gt_image)
+        output_np_ssim = tensor2im(output_image)
+
+        gt_bgr = cv2.cvtColor(gt_np_ssim, cv2.COLOR_LAB2BGR)
+        output_bgr = cv2.cvtColor(output_np_ssim, cv2.COLOR_LAB2BGR)
+
+        ssim_score = ssim(gt_bgr, output_bgr)
+        ssim_total += ssim_score
 
         total_loss += loss.detach()
         iteration += 1
@@ -547,17 +591,18 @@ def validation_1epoch(net, dataloader, object_epoch):
 
     total_loss /= iteration
     psnr_total /= iteration
+    ssim_total /= iteration
 
-    return total_loss, psnr_total
+    return total_loss, psnr_total, ssim_total
 
 
 for epoch in range(object_epoch):
-    train_loss, psnr = train_1epoch(net, train_dataloader, epoch)
-    print('[TRAINING] Epoch {} loss: {}, psnr: {}'.format(epoch, train_loss, psnr))
+    train_loss, train_psnr, train_ssim = train_1epoch(net, train_dataloader, epoch)
+    print('[TRAINING] Epoch {} loss: {}, psnr: {}, ssim: {}'.format(epoch, train_loss, train_psnr, train_ssim.item()))
 
     with torch.no_grad():
-        val_loss, val_psnr = validation_1epoch(net, val_dataloader, epoch)
-        print('[VALIDATION] Epoch {} loss: {}, psnr: {}'.format(epoch, val_loss, val_psnr))
+        val_loss, val_psnr, val_ssim = validation_1epoch(net, val_dataloader, epoch)
+        print('[VALIDATION] Epoch {} loss: {}, psnr: {}, ssim: {}'.format(epoch, val_loss, val_psnr, val_ssim.item()))
 
     torch.save({
         'memo': 'Colorization Model',
