@@ -523,6 +523,7 @@ def train_1epoch(net, dataloader, object_epoch):
 
     return total_loss, psnr_total, ssim_total
 
+
 def validation_1epoch(net, dataloader, object_epoch):
     total_loss = 0
     iteration = 0
