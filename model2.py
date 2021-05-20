@@ -198,7 +198,7 @@ class ColorizationModel(nn.Module):
 
         ''' Hint conv layer '''
         # Hint conv1
-        h_model1 = [nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model1 = [nn.Conv2d(2, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
         h_model1 += [nn.ReLU(True), ]
         h_model1 += [nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
         h_model1 += [nn.ReLU(True), ]
