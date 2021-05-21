@@ -26,7 +26,11 @@ class ColorHintTransform(object):
     def hint_mask(self, bgr, threshold=[0.95, 0.97, 0.99]):
         h, w, c = bgr.shape
         mask_threshold = random.choice(threshold)
-        mask = np.random.random([h, w, 1]) > threshold
+        mask = np.random.random([h, w, 1]) > mask_threshold
+        return mask
+
+    def img_to_mask(self, mask_img):
+        mask = mask_img[:, :, 0, np.newaxis] >= 255
         return mask
 
     def __call__(self, img):
@@ -44,10 +48,12 @@ class ColorHintTransform(object):
 
         elif self.mode == "testing":
             image = cv2.resize(img, (self.size, self.size))
+            hint_image = image * self.img_to_mask(image)
 
-            l, ab = self.bgr_to_lab(image)
+            l, _ = self.bgr_to_lab(image)
+            _, ab_hint = self.bgr_to_lab(hint_image)
 
-            return self.gt_transform(l), self.transform(ab)
+            return self.transform(l), self.transform(ab_hint)
 
         else:
             return NotImplementedError
@@ -61,6 +67,8 @@ class ColorHintDataset(data.Dataset):
         self.size = size
         self.transforms = None
         self.examples = None
+        self.hint = None
+        self.mask = None
 
     def set_mode(self, mode):
         self.mode = mode
@@ -79,28 +87,35 @@ class ColorHintDataset(data.Dataset):
             self.examples = [os.path.join(self.root_path, "validation", dirs) for dirs in os.listdir(val_dir)]
 
         elif mode == "testing":
-            test_dir = os.path.join(self.root_path, "test")
-
-            # File name
-            self.examples = [os.path.join(self.root_path, "test", dirs) for dirs in os.listdir(test_dir)]
+            hint_dir = os.path.join(self.root_path, "hint")
+            mask_dir = os.path.join(self.root_path, "mask")
+            self.hint = [os.path.join(self.root_path, "hint", dirs) for dirs in os.listdir(hint_dir)]
+            self.mask = [os.path.join(self.root_path, "mask", dirs) for dirs in os.listdir(mask_dir)]
 
         else:
             raise NotImplementedError
 
     def __len__(self):
-        return len(self.examples)
+        if self.mode != "testing":
+            return len(self.examples)
+        else:
+            return len(self.hint)
 
     def __getitem__(self, idx):
-        file_name = self.examples[idx]
-        img = cv2.imread(file_name)
-
         if self.mode == "testing":
-            input_l, input_ab = self.transforms(img)
-            sample = {"l": input_l, "ab": input_ab}
+            hint_file_name = self.hint[idx]
+            mask_file_name = self.mask[idx]
+            hint_img = cv2.imread(hint_file_name)
+            mask_img = cv2.imread(mask_file_name)
+
+            input_l, input_hint = self.transforms(hint_img, mask_img)
+            sample = {"l": input_l, "hint": input_hint,
+                      "file_name": "image_%06d.png" % int(os.path.basename(hint_file_name).split('.')[0])}
         else:
+            file_name = self.examples[idx]
+            img = cv2.imread(file_name)
             l, ab, hint = self.transforms(img)
             sample = {"l": l, "ab": ab, "hint": hint}
-
         return sample
 
 
@@ -197,7 +212,7 @@ class ColorizationModel(nn.Module):
         norm_layer = nn.BatchNorm2d
 
         # Conv1
-        model1 = [nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        model1 = [nn.Conv2d(4, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
         model1 += [nn.ReLU(True), ]
         model1 += [nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
         model1 += [nn.ReLU(True), ]
@@ -479,8 +494,7 @@ def train_1epoch(net, dataloader, object_epoch):
         # PSNR
         gt_np = tensor2npy(gt_image)
         output_np = tensor2npy(output_image)
-        psnr_mse = ((output_np - gt_np) ** 2).sum() / len(output_np)
-        #psnr_mse = np.mean((output_np - gt_np) ** 2)
+        psnr_mse = np.mean((output_np - gt_np) ** 2)
 
         psnr = PSNR(psnr_mse)
         psnr_total += psnr
@@ -552,8 +566,8 @@ def validation_1epoch(net, dataloader, object_epoch):
 
         gt_np = tensor2npy(gt_image)
         output_np = tensor2npy(output_image)
-        psnr_mse = ((output_np - gt_np) ** 2).sum() / len(output_np)
-        #psnr_mse = np.mean((output_np - gt_np) ** 2)
+        psnr_mse = np.mean((output_np - gt_np) ** 2)
+
 
         psnr = PSNR(psnr_mse)
         psnr_total += psnr

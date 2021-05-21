@@ -38,10 +38,14 @@ class ColorHintTransform(object):
     def hint_mask(self, bgr, threshold=[0.95, 0.97, 0.99]):
         h, w, c = bgr.shape
         mask_threshold = random.choice(threshold)
-        mask = np.random.random([h, w, 1]) > threshold
+        mask = np.random.random([h, w, 1]) > mask_threshold
         return mask
 
-    def __call__(self, img):
+    def img_to_mask(self, mask_img):
+        mask = mask_img[:, :, 0, np.newaxis] >= 255
+        return mask
+
+    def __call__(self, img, mask_img=None):
         threshold = [0.95, 0.97, 0.99]
         if (self.mode == "training") | (self.mode == "validation"):
             image = cv2.resize(img, (self.size, self.size))
@@ -56,10 +60,12 @@ class ColorHintTransform(object):
 
         elif self.mode == "testing":
             image = cv2.resize(img, (self.size, self.size))
+            hint_image = image * self.img_to_mask(mask_img)
 
-            l, ab = self.bgr_to_lab(image)
+            l, _ = self.bgr_to_lab(image)
+            _, ab_hint = self.bgr_to_lab(hint_image)
 
-            return self.gt_transform(l), self.transform(ab)
+            return self.transform(l), self.transform(ab_hint)
 
         else:
             return NotImplementedError
@@ -72,6 +78,8 @@ class ColorHintDataset(data.Dataset):
         self.size = size
         self.transforms = None
         self.examples = None
+        self.hint = None
+        self.mask = None
 
     def set_mode(self, mode):
         self.mode = mode
@@ -90,28 +98,35 @@ class ColorHintDataset(data.Dataset):
             self.examples = [os.path.join(self.root_path, "validation", dirs) for dirs in os.listdir(val_dir)]
 
         elif mode == "testing":
-            test_dir = os.path.join(self.root_path, "test/hint")
+            hint_dir = os.path.join(self.root_path, "hint")
+            mask_dir = os.path.join(self.root_path, "mask")
+            self.hint = [os.path.join(self.root_path, "hint", dirs) for dirs in os.listdir(hint_dir)]
+            self.mask = [os.path.join(self.root_path, "mask", dirs) for dirs in os.listdir(mask_dir)]
 
-            # File name
-
-            self.examples = [os.path.join(self.root_path, "test/hint", dirs) for dirs in os.listdir(test_dir)]
         else:
             raise NotImplementedError
 
     def __len__(self):
-        return len(self.examples)
+        if self.mode != "testing":
+            return len(self.examples)
+        else:
+            return len(self.hint)
 
     def __getitem__(self, idx):
-        file_name = self.examples[idx]
-        img = cv2.imread(file_name)
-
         if self.mode == "testing":
-            input_l, input_ab = self.transforms(img)
-            sample = {"l": input_l, "ab": input_ab}
+            hint_file_name = self.hint[idx]
+            mask_file_name = self.mask[idx]
+            hint_img = cv2.imread(hint_file_name)
+            mask_img = cv2.imread(mask_file_name)
+
+            input_l, input_hint = self.transforms(hint_img, mask_img)
+            sample = {"l": input_l, "hint": input_hint,
+                      "file_name": "image_%06d.png" % int(os.path.basename(hint_file_name).split('.')[0])}
         else:
+            file_name = self.examples[idx]
+            img = cv2.imread(file_name)
             l, ab, hint = self.transforms(img)
             sample = {"l": l, "ab": ab, "hint": hint}
-
         return sample
 
 # Change to your data root directory
@@ -122,7 +137,7 @@ use_cuda = True
 test_dataset = ColorHintDataset(root_path, 128)
 test_dataset.set_mode("testing")
 
-test_dataloader = data.DataLoader(test_dataset, batch_size=25, shuffle=True)
+test_dataloader = data.DataLoader(test_dataset)
 
 '''
     img
@@ -357,17 +372,20 @@ class ColorizationModel(nn.Module):
             out_reg = self.model_out(conv10_2)
             return out_reg
 
+
 net = ColorizationModel().cuda()
 net.load_state_dict(state_dict['model_weight'], strict=True)
 
+
 def test_1epoch(net, dataloader):
     iteration = 000
-
+    img_num = 0
     net.eval()
 
     for sample in tqdm.auto.tqdm(dataloader):
         img_l = sample['l']
-        img_hint = sample['ab']
+        img_hint = sample['hint']
+        file_name = sample['file_name']
 
         img_l = img_l.float().cuda()
         img_hint = img_hint.float().cuda()
@@ -381,13 +399,9 @@ def test_1epoch(net, dataloader):
         output_bgr = cv2.cvtColor(output_np, cv2.COLOR_LAB2BGR)
 
         # Image presentation
-        output_image = torch.cat((img_l, output), dim=1)
-        output_np = tensor2im(output_image)
-        output_bgr = cv2.cvtColor(output_np, cv2.COLOR_LAB2BGR)
-
-        image_show(output_bgr)
-
-    cv2.imwrite('./result/'+'image_000'+ iteration + '.png', output_bgr)
+        #image_show(output_bgr)
+        cv2.imwrite('./result/' + file_name[0], output_bgr)
+        iteration += 1
 
     return 0
 
