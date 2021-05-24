@@ -13,7 +13,13 @@ import cv2
 import torch
 import os
 import tqdm
-
+# save_path = './ColorizationNetwork'
+# model_path = os.path.join(save_path, 'validation_model.tar')
+# state_dict = torch.load(model_path)
+#
+# print(state_dict['memo'])
+# print(state_dict.keys())
+# print(state_dict['PSNR'])
 
 '''
  Original transform
@@ -481,40 +487,6 @@ class ColorizationModel(nn.Module):
         use_bias = True
         norm_layer = nn.BatchNorm2d
 
-        ''' Hint conv layer '''
-        # Hint conv1
-        h_model1 = [nn.Conv2d(2, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        h_model1 += [nn.ReLU(True), ]
-        h_model1 += [nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        h_model1 += [nn.ReLU(True), ]
-        h_model1 += [norm_layer(64), ]
-
-        # Hint conv2
-        h_model2 = [nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        h_model2 += [nn.ReLU(True), ]
-        h_model2 += [nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        h_model2 += [nn.ReLU(True), ]
-        h_model2 += [norm_layer(128), ]
-
-        # Hint conv3
-        h_model3 = [nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        h_model3 += [nn.ReLU(True), ]
-        h_model3 += [nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        h_model3 += [nn.ReLU(True), ]
-        h_model3 += [nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        h_model3 += [nn.ReLU(True), ]
-        h_model3 += [norm_layer(256), ]
-
-        # Hint conv4
-        h_model4 = [nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        h_model4 += [nn.ReLU(True), ]
-        h_model4 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        h_model4 += [nn.ReLU(True), ]
-        h_model4 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        h_model4 += [nn.ReLU(True), ]
-        h_model4 += [norm_layer(512), ]
-
-        ''' Main '''
         # Conv1
         model1 = [nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
         model1 += [nn.ReLU(True), ]
@@ -559,16 +531,6 @@ class ColorizationModel(nn.Module):
         model5 += [nn.ReLU(True), ]
         model5 += [norm_layer(512), ]
 
-        # Conv5-1
-        model5_1_add = [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-
-        model5_1 = [nn.ReLU(True), ]
-        model5_1 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model5_1 += [nn.ReLU(True), ]
-        model5_1 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model5_1 += [nn.ReLU(True), ]
-        model5_1 += [norm_layer(512), ]
-
         # Conv6
         model6 = [nn.Conv2d(512, 512, kernel_size=3, dilation=2, stride=1, padding=2, bias=use_bias), ]
         model6 += [nn.ReLU(True), ]
@@ -578,19 +540,10 @@ class ColorizationModel(nn.Module):
         model6 += [nn.ReLU(True), ]
         model6 += [norm_layer(512), ]
 
-        # Conv6-1
-        model6_1 = [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model6_1 += [nn.ReLU(True), ]
-        model6_1 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model6_1 += [nn.ReLU(True), ]
-        model6_1 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model6_1 += [nn.ReLU(True), ]
-        model6_1 += [norm_layer(512), ]
 
         # Conv7
-        model7add = [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-
-        model7 = [nn.ReLU(True), ]
+        model7 = [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        model7 += [nn.ReLU(True), ]
         model7 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
         model7 += [nn.ReLU(True), ]
         model7 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
@@ -634,28 +587,12 @@ class ColorizationModel(nn.Module):
         model_out = [nn.Conv2d(128, 2, kernel_size=1, padding=0, dilation=1, stride=1, bias=use_bias), ]
         model_out += [nn.Tanh()]
 
-        ''' Hint '''
-        self.h_model1 = nn.Sequential(*h_model1)
-        self.h_model2 = nn.Sequential(*h_model2)
-        self.h_model3 = nn.Sequential(*h_model3)
-        self.h_model4 = nn.Sequential(*h_model4)
-
-        ''' Main '''
         self.model1 = nn.Sequential(*model1)
         self.model2 = nn.Sequential(*model2)
         self.model3 = nn.Sequential(*model3)
         self.model4 = nn.Sequential(*model4)
-
-        # Dilation
         self.model5 = nn.Sequential(*model5)
         self.model6 = nn.Sequential(*model6)
-
-        # Original
-        self.model5_1_add = nn.Sequential(*model5_1_add)
-        self.model5_1 = nn.Sequential(*model5_1)
-        self.model6_1 = nn.Sequential(*model6_1)
-
-        self.model7add = nn.Sequential(*model7add)
         self.model7 = nn.Sequential(*model7)
         self.model8up = nn.Sequential(*model8up)
         self.model8 = nn.Sequential(*model8)
@@ -676,13 +613,6 @@ class ColorizationModel(nn.Module):
     def forward(self, input_l, mask_B, maskcent=0):
         mask_B = mask_B - maskcent
 
-        ''' Hint '''
-        h_conv1_2 = self.h_model1(mask_B)
-        h_conv2_2 = self.h_model2(h_conv1_2[:, :, ::2, ::2])
-        h_conv3_3 = self.h_model3(h_conv2_2[:, :, ::2, ::2])
-        h_conv4_3 = self.h_model4(h_conv3_3[:, :, ::2, ::2])
-
-        ''' Main '''
         conv1_2 = self.model1(torch.cat((input_l, mask_B), dim=1))
         conv2_2 = self.model2(conv1_2[:, :, ::2, ::2])
         conv3_3 = self.model3(conv2_2[:, :, ::2, ::2])
@@ -691,14 +621,7 @@ class ColorizationModel(nn.Module):
         # Dilation
         conv5_3 = self.model5(conv4_3)
         conv6_3 = self.model6(conv5_3)
-
-        #Original
-        conv5_1_3_add = self.model5_1_add(h_conv4_3) + self.model5_1_add(conv4_3)
-        conv5_1_3 = self.model5_1(conv5_1_3_add)
-        conv6_1_3 = self.model6_1(conv5_1_3)
-
-        conv7_add = self.model7add(conv6_3) + self.model7add(conv6_1_3)
-        conv7_3 = self.model7(conv7_add)
+        conv7_3 = self.model7(conv6_3)
 
         conv8_up = self.model8up(conv7_3) + self.model3short8(conv3_3)
         conv8_3 = self.model8(conv8_up)
@@ -771,6 +694,7 @@ print('train dataset length: ', len(train_dataloader))
 
 # 1. Network setting
 net = ColorizationModel().cuda()
+# net.load_state_dict(state_dict['model_weight'], strict=True)
 
 # 2. Loss and Optimizer setting
 import torch.optim as optim
@@ -778,7 +702,8 @@ criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(net.parameters(), lr=0.0001)
 
 #3. 기타 변수들
-object_epoch = 30
+object_epoch = 15
+
 save_path = './ColorizationNetwork'
 os.makedirs(save_path, exist_ok=True)
 output_path = os.path.join(save_path, 'basic_model.tar')

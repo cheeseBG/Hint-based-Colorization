@@ -551,23 +551,15 @@ class ColorizationModel(nn.Module):
         model4 += [norm_layer(512), ]
 
         # Conv5
-        model5 = [nn.Conv2d(512, 512, kernel_size=3, dilation=2, stride=1, padding=2, bias=use_bias), ]
-        model5 += [nn.ReLU(True), ]
+        model5_add = [nn.Conv2d(512, 512, kernel_size=3, dilation=2, stride=1, padding=2, bias=use_bias), ]
+
+        model5 = [nn.ReLU(True), ]
         model5 += [nn.Conv2d(512, 512, kernel_size=3, dilation=2, stride=1, padding=2, bias=use_bias), ]
         model5 += [nn.ReLU(True), ]
         model5 += [nn.Conv2d(512, 512, kernel_size=3, dilation=2, stride=1, padding=2, bias=use_bias), ]
         model5 += [nn.ReLU(True), ]
         model5 += [norm_layer(512), ]
 
-        # Conv5-1
-        model5_1_add = [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-
-        model5_1 = [nn.ReLU(True), ]
-        model5_1 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model5_1 += [nn.ReLU(True), ]
-        model5_1 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model5_1 += [nn.ReLU(True), ]
-        model5_1 += [norm_layer(512), ]
 
         # Conv6
         model6 = [nn.Conv2d(512, 512, kernel_size=3, dilation=2, stride=1, padding=2, bias=use_bias), ]
@@ -578,19 +570,9 @@ class ColorizationModel(nn.Module):
         model6 += [nn.ReLU(True), ]
         model6 += [norm_layer(512), ]
 
-        # Conv6-1
-        model6_1 = [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model6_1 += [nn.ReLU(True), ]
-        model6_1 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model6_1 += [nn.ReLU(True), ]
-        model6_1 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model6_1 += [nn.ReLU(True), ]
-        model6_1 += [norm_layer(512), ]
-
         # Conv7
-        model7add = [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-
-        model7 = [nn.ReLU(True), ]
+        model7 = [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        model7 += [nn.ReLU(True), ]
         model7 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
         model7 += [nn.ReLU(True), ]
         model7 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
@@ -646,16 +628,10 @@ class ColorizationModel(nn.Module):
         self.model3 = nn.Sequential(*model3)
         self.model4 = nn.Sequential(*model4)
 
-        # Dilation
+        self.model5_add = nn.Sequential(*model5_add)
         self.model5 = nn.Sequential(*model5)
+
         self.model6 = nn.Sequential(*model6)
-
-        # Original
-        self.model5_1_add = nn.Sequential(*model5_1_add)
-        self.model5_1 = nn.Sequential(*model5_1)
-        self.model6_1 = nn.Sequential(*model6_1)
-
-        self.model7add = nn.Sequential(*model7add)
         self.model7 = nn.Sequential(*model7)
         self.model8up = nn.Sequential(*model8up)
         self.model8 = nn.Sequential(*model8)
@@ -688,18 +664,11 @@ class ColorizationModel(nn.Module):
         conv3_3 = self.model3(conv2_2[:, :, ::2, ::2])
         conv4_3 = self.model4(conv3_3[:, :, ::2, ::2])
 
-        # Dilation
-        conv5_3 = self.model5(conv4_3)
+        conv5_3_add = self.model5_add(h_conv4_3) + self.model5_add(conv4_3)
+        conv5_3 = self.model5(conv5_3_add)
+
         conv6_3 = self.model6(conv5_3)
-
-        #Original
-        conv5_1_3_add = self.model5_1_add(h_conv4_3) + self.model5_1_add(conv4_3)
-        conv5_1_3 = self.model5_1(conv5_1_3_add)
-        conv6_1_3 = self.model6_1(conv5_1_3)
-
-        conv7_add = self.model7add(conv6_3) + self.model7add(conv6_1_3)
-        conv7_3 = self.model7(conv7_add)
-
+        conv7_3 = self.model7(conv6_3)
         conv8_up = self.model8up(conv7_3) + self.model3short8(conv3_3)
         conv8_3 = self.model8(conv8_up)
 

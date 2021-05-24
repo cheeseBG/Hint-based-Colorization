@@ -183,6 +183,40 @@ class ColorizationModel(nn.Module):
         use_bias = True
         norm_layer = nn.BatchNorm2d
 
+        ''' Hint conv layer '''
+        # Hint conv1
+        h_model1 = [nn.Conv2d(2, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model1 += [nn.ReLU(True), ]
+        h_model1 += [nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model1 += [nn.ReLU(True), ]
+        h_model1 += [norm_layer(64), ]
+
+        # Hint conv2
+        h_model2 = [nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model2 += [nn.ReLU(True), ]
+        h_model2 += [nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model2 += [nn.ReLU(True), ]
+        h_model2 += [norm_layer(128), ]
+
+        # Hint conv3
+        h_model3 = [nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model3 += [nn.ReLU(True), ]
+        h_model3 += [nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model3 += [nn.ReLU(True), ]
+        h_model3 += [nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model3 += [nn.ReLU(True), ]
+        h_model3 += [norm_layer(256), ]
+
+        # Hint conv4
+        h_model4 = [nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model4 += [nn.ReLU(True), ]
+        h_model4 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model4 += [nn.ReLU(True), ]
+        h_model4 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+        h_model4 += [nn.ReLU(True), ]
+        h_model4 += [norm_layer(512), ]
+
+        ''' Main '''
         # Conv1
         model1 = [nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
         model1 += [nn.ReLU(True), ]
@@ -301,6 +335,13 @@ class ColorizationModel(nn.Module):
         model_out = [nn.Conv2d(128, 2, kernel_size=1, padding=0, dilation=1, stride=1, bias=use_bias), ]
         model_out += [nn.Tanh()]
 
+        ''' Hint '''
+        self.h_model1 = nn.Sequential(*h_model1)
+        self.h_model2 = nn.Sequential(*h_model2)
+        self.h_model3 = nn.Sequential(*h_model3)
+        self.h_model4 = nn.Sequential(*h_model4)
+
+        ''' Main '''
         self.model1 = nn.Sequential(*model1)
         self.model2 = nn.Sequential(*model2)
         self.model3 = nn.Sequential(*model3)
@@ -335,10 +376,18 @@ class ColorizationModel(nn.Module):
     def forward(self, input_l, mask_B, maskcent=0):
         mask_B = mask_B - maskcent
 
+        ''' Hint '''
+        h_conv1_2 = self.h_model1(mask_B)
+        h_conv2_2 = self.h_model2(h_conv1_2[:, :, ::2, ::2])
+        h_conv3_3 = self.h_model3(h_conv2_2[:, :, ::2, ::2])
+
+        ''' Main '''
         conv1_2 = self.model1(torch.cat((input_l, mask_B), dim=1))
         conv2_2 = self.model2(conv1_2[:, :, ::2, ::2])
         conv3_3 = self.model3(conv2_2[:, :, ::2, ::2])
-        conv4_3 = self.model4(conv3_3[:, :, ::2, ::2])
+
+        # Add hint
+        conv4_3 = self.model4(conv3_3[:, :, ::2, ::2]) + self.h_model4(h_conv3_3[:, :, ::2, ::2])
 
         # Dilation
         conv5_3 = self.model5(conv4_3)
@@ -378,8 +427,6 @@ net.load_state_dict(state_dict['model_weight'], strict=True)
 
 
 def test_1epoch(net, dataloader):
-    iteration = 000
-    img_num = 0
     net.eval()
 
     for sample in tqdm.auto.tqdm(dataloader):
@@ -401,7 +448,6 @@ def test_1epoch(net, dataloader):
         # Image presentation
         #image_show(output_bgr)
         cv2.imwrite('./result/' + file_name[0], output_bgr)
-        iteration += 1
 
     return 0
 
