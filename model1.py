@@ -10,6 +10,20 @@ import torch.utils.data as data
 import os
 import cv2
 
+# 이어서 학습################
+
+save_path = './ColorizationNetwork'
+model_path = os.path.join(save_path, 'validation_model.tar')
+state_dict = torch.load(model_path)
+
+print(state_dict['memo'])
+print(state_dict.keys())
+print(state_dict['PSNR'])
+
+##########################
+
+
+
 '''
  Original transform
 '''
@@ -717,13 +731,16 @@ print('train dataset length: ', len(train_dataloader))
 # 1. Network setting
 net = ColorizationModel().cuda()
 
+# 이어서 학습
+net.load_state_dict(state_dict['model_weight'], strict=True)
+
 # 2. Loss and Optimizer setting
 import torch.optim as optim
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(net.parameters(), lr=0.0001)
 
 #3. 기타 변수들
-object_epoch = 200
+object_epoch = 30
 
 save_path = './ColorizationNetwork'
 os.makedirs(save_path, exist_ok=True)
