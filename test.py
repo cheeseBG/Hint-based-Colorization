@@ -262,8 +262,9 @@ class ColorizationModel(nn.Module):
         model5 += [norm_layer(512), ]
 
         # Conv5-1
-        model5_1 = [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
-        model5_1 += [nn.ReLU(True), ]
+        model5_1_add = [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
+
+        model5_1 = [nn.ReLU(True), ]
         model5_1 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
         model5_1 += [nn.ReLU(True), ]
         model5_1 += [nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=use_bias), ]
@@ -352,6 +353,7 @@ class ColorizationModel(nn.Module):
         self.model6 = nn.Sequential(*model6)
 
         # Original
+        self.model5_1_add = nn.Sequential(*model5_1_add)
         self.model5_1 = nn.Sequential(*model5_1)
         self.model6_1 = nn.Sequential(*model6_1)
 
@@ -380,21 +382,21 @@ class ColorizationModel(nn.Module):
         h_conv1_2 = self.h_model1(mask_B)
         h_conv2_2 = self.h_model2(h_conv1_2[:, :, ::2, ::2])
         h_conv3_3 = self.h_model3(h_conv2_2[:, :, ::2, ::2])
+        h_conv4_3 = self.h_model4(h_conv3_3[:, :, ::2, ::2])
 
         ''' Main '''
         conv1_2 = self.model1(torch.cat((input_l, mask_B), dim=1))
         conv2_2 = self.model2(conv1_2[:, :, ::2, ::2])
         conv3_3 = self.model3(conv2_2[:, :, ::2, ::2])
-
-        # Add hint
-        conv4_3 = self.model4(conv3_3[:, :, ::2, ::2]) + self.h_model4(h_conv3_3[:, :, ::2, ::2])
+        conv4_3 = self.model4(conv3_3[:, :, ::2, ::2])
 
         # Dilation
         conv5_3 = self.model5(conv4_3)
         conv6_3 = self.model6(conv5_3)
 
         #Original
-        conv5_1_3 = self.model5_1(conv4_3)
+        conv5_1_3_add = self.model5_1_add(h_conv4_3) + self.model5_1_add(conv4_3)
+        conv5_1_3 = self.model5_1(conv5_1_3_add)
         conv6_1_3 = self.model6_1(conv5_1_3)
 
         conv7_add = self.model7add(conv6_3) + self.model7add(conv6_1_3)
