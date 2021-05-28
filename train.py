@@ -17,7 +17,7 @@ from model import ColorizationModel
 from dataloader import ColorHintDataset
 
 
-# 이어서 학습################
+# Learning pre-trained model ################
 
 # save_path = './ColorizationNetwork'
 # model_path = os.path.join(save_path, 'validation_model.tar')
@@ -137,13 +137,13 @@ print('train dataset length: ', len(train_dataloader))
 net = ColorizationModel().cuda()
 
 # Learning  pre-trained model
-#net.load_state_dict(state_dict['model_weight'], strict=True)
+# net.load_state_dict(state_dict['model_weight'], strict=True)
 
 # Loss and Optimizer setting
 criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(net.parameters(), lr=0.0001)
+optimizer = optim.Adam(net.parameters(), lr=0.0001)
 
-object_epoch = 50
+object_epoch = 35
 
 save_path = './ColorizationNetwork'
 os.makedirs(save_path, exist_ok=True)
