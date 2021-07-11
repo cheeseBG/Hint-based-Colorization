@@ -41,9 +41,12 @@ This Project is that Hint-based colorization reconstructs complete colorful imag
 
 ## Members
 
-|팀원|장정익|임홍재|안세훈|김예린|
-|------|---|---|---|---|
-
+|Name|Work|
+|------|---|
+|장정익|Real-Time User-Guided Image Colorization Implementation|
+|김홍재|Res-Unet Implementation|
+|안세훈|Data augmentation, Video, ReadMe|
+|김예린|interim reports, PPT|
 
 
 
